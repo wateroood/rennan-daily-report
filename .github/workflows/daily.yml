@@ -1,0 +1,63 @@
+name: 人南片区取送日报（每日20:30）
+
+on:
+  schedule:
+    # UTC 12:30 = 北京时间 20:30（GitHub cron 使用 UTC）
+    - cron: '30 12 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rennan-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GSX_BASE: ${{ secrets.GSX_BASE }}
+      GSX_USER: ${{ secrets.GSX_USER }}
+      GSX_PASS: ${{ secrets.GSX_PASS }}
+      # SaaS 后端不校验 MAC（已实测，伪造 MAC 可正常登录），固定值即可
+      GSX_MAC: 00-11-22-33-44-55
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖（Playwright + Chromium）
+        run: |
+          pip install playwright
+          python -m playwright install chromium --with-deps
+
+      - name: 运行流水线（取数 → 计算 → 生成 HTML）
+        run: python run_daily.py
+
+      - name: 核对产物
+        run: |
+          ls -la dist/
+          test -f dist/index.html && echo "✅ dist/index.html 已生成"
+
+      - name: 上传 Pages 产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: 发布到 GitHub Pages
+        uses: actions/deploy-pages@v4
+
+      - name: 输出线上链接
+        run: |
+          echo "## 人南片区取送日报（云端自动更新）" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "链接: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "本次运行: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_STEP_SUMMARY

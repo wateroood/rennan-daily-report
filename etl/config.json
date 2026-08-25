@@ -1,0 +1,69 @@
+{
+ "_comment": "国色星洗 SaaS 取数配置。所有字段均可用环境变量覆盖：GSX_BASE / GSX_USER / GSX_PASS / GSX_MAC 云端版：凭据经环境变量 GSX_USER/GSX_PASS/GSX_BASE/GSX_MAC 注入（GitHub Actions Secrets），仓库不存明文。",
+ "base": "https://server.guosexiran.com",
+ "user": "",
+ "password": "",
+ "_mac_comment": "SaaS 前端启动时会读本机 MAC，读不到会抛「获取mac地址失败」并中断初始化，所以必须注入一个值。已做对照实验：用本机真实 MAC、原授权 MAC、甚至伪造的 00-11-22-33-44-55 都能登录成功 —— 证明后端不校验 MAC，换电脑无需任何授权。保持 'auto' 即可。",
+ "mac": "auto",
+ "_browser_comment": "浏览器通道优先级，逐个尝试；全部失败则回退 Playwright 自带 chromium",
+ "browser_channels": [
+  "msedge",
+  "chrome"
+ ],
+ "headless": true,
+ "_shops_comment": "成都公司口径：30 家零售门店 + 地铁集团店(id=69,仅内部)。不含麓山大道店及已关店门店。",
+ "shops": {
+  "1": "紫荆店",
+  "2": "丽都店",
+  "3": "鹭岛店",
+  "4": "东苑店",
+  "5": "浣花溪店",
+  "8": "东湖店",
+  "9": "攀成钢店",
+  "11": "大源店",
+  "12": "天府二街店",
+  "14": "金沙店",
+  "15": "麓镇店",
+  "16": "天府五街店",
+  "17": "通盈街店",
+  "18": "二十四城店",
+  "19": "新希望路店",
+  "20": "盛和路店",
+  "33": "杉板桥店",
+  "34": "西派国樾店",
+  "35": "香月湖店",
+  "36": "怡心湖中心店",
+  "38": "晶蓝半岛店",
+  "40": "西派城店",
+  "42": "高攀路店",
+  "43": "世纪城店",
+  "45": "牡丹街店",
+  "46": "天府一街店",
+  "47": "塔子山店",
+  "50": "中海锦城店",
+  "57": "三千城店",
+  "73": "大世界店"
+ },
+ "internal_shops": {
+  "69": "地铁集团店(仅内部)"
+ },
+ "_merge_comment": "地铁集团店(69) 并入天府一街店(46)。看板官方说明「天府一街店含地铁」——全部指标相加，现金流亦相加（不置0）。",
+ "merge_into": {
+  "69": "46"
+ },
+ "new_shops_2026": {
+  "73": "大世界店"
+ },
+ "api": {
+  "yybb": "/api/qtyw/cashlog/getPageYybb",
+  "financial_total": "/api/zhcx/financial/financialtotal",
+  "clothes_details": "/api/qtyw/orderclothes/getClothesDetails",
+  "xfbb": "/api/qtyw/cashlog/getPageXfbb",
+  "shoes_leather": "/api/zhcx/financialdetail/shoesAndLather",
+  "special_treat": "/api/zhcx/financialdetail/specialTreat",
+  "sell_card": "/api/zhcx/financialdetail/sellCard",
+  "recharge": "/api/zhcx/financialdetail/recharge",
+  "customer_history": "/api/hygl/customerhistory/",
+  "delivery_info": "/api/zhcx/deliveryinfo/query"
+ }
+}

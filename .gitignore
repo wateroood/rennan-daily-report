@@ -1,0 +1,15 @@
+# 运行时产物（不入库）
+qusong_rows.json
+analysis_data.json
+delivery_Y_raw.json
+*.html
+dist/
+!index.html
+
+# Python
+__pycache__/
+*.pyc
+
+# 本地
+.verify/
+.vscode/
