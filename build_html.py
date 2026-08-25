@@ -40,6 +40,11 @@ HTML = r"""<!DOCTYPE html>
   .kpi .val{font-size:25px;font-weight:750;letter-spacing:.3px;}
   .kpi .val small{font-size:13px;color:var(--sub);font-weight:600;margin-left:3px;}
   .kpi .sub{font-size:12px;color:var(--sub);margin-top:5px;}
+  /* 改革后对比排：橙色顶边区分于改革前基线排 */
+  .kpi.after{border-top:3px solid var(--orange);background:#fffdf8;}
+  .rowtag{display:flex;align-items:center;gap:8px;margin:2px 0 12px;font-size:13px;font-weight:700;}
+  .rowtag small{font-weight:600;color:var(--sub);font-size:12px;}
+  .rowtag.after{color:var(--orange);}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(20,30,60,.04);}
   .panel h3{margin:0 0 4px;font-size:15.5px;}
   .panel .desc{color:var(--sub);font-size:12.5px;margin:0 0 14px;}
@@ -197,8 +202,22 @@ function reformAnno(){
       backgroundColor:'#f59229', color:'#fff', font:{size:11,weight:'700'}, padding:4, borderRadius:4}
   }}};
 }
-function kpiCard(lbl,val,unit,sub){
-  return `<div class="kpi"><div class="lbl">${lbl}</div><div class="val">${val}${unit?`<small>${unit}</small>`:''}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+function kpiCard(lbl,val,unit,sub,cls){
+  return `<div class="kpi${cls?` ${cls}`:''}"><div class="lbl">${lbl}</div><div class="val">${val}${unit?`<small>${unit}</small>`:''}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+}
+
+// 改革后区间（reform_date 起）日均指标 —— 与改革前基线同维度，供上下两排卡片对比
+function reformPeriodAvg(){
+  const i = DATA.meta.reform_index;
+  const d = DATA.overall.daily;
+  const days = DATA.dates.length - i;
+  const sum = a=> a.slice(i).reduce((x,y)=>x+y,0);
+  const qo=sum(d['取衣_orders']), so=sum(d['送衣_orders']), to=sum(d['orders']);
+  const tp=sum(d['pieces']);
+  return {days, qo, so, to, tp,
+    dqo:+(qo/days).toFixed(2), dso:+(so/days).toFixed(2),
+    dto:+(to/days).toFixed(2), dtp:+(tp/days).toFixed(2),
+    apo: to? +(tp/to).toFixed(2):0};
 }
 
 function renderOverview(){
@@ -405,6 +424,7 @@ function renderReform(){
   const preN = DATA.baseline.pre_days;
   const o = DATA.overall;
   const rd = reformDayMetrics(o);
+  const rm = reformPeriodAvg();
   const reformDates = DATA.dates.filter(d=> d >= DATA.meta.reform_date);
   // 6位伙伴改革后单日明细：行=伙伴×日期，列=姓名/日期/取衣送衣合计单量/取衣送衣合计件数/单量及件数日环比
   const pks = DATA.meta.partners;
@@ -430,14 +450,23 @@ function renderReform(){
   const sec=document.getElementById('sec-reform');
   sec.innerHTML = `
     <div class="panel">
-      <h3>改革前基线（${DATA.baseline.pre_period} 固化节点）</h3>
-      <p class="base-note">将改革前 ${preN} 天日均值固化为「改革前常态」参考节点，用于与 ${reformLabel()} 起改革后的单日数据做日环比对比，观察改革效果。</p>
+      <h3>改革前基线 vs 改革后日均（同维度对比）</h3>
+      <p class="base-note">上一排为改革前基线（${DATA.baseline.pre_period}，${preN} 天均值固化）；下一排为改革后（${reformLabel()} 起，共 ${rm.days} 天）同维度日均指标，两排逐列对应，可直接对比改革前后变化。</p>
+      <div class="rowtag">▶ 改革前基线 <small>${DATA.baseline.pre_period} · ${preN} 天均值</small></div>
       <div class="cards">
-        ${kpiCard('日均取衣单量', b.quyi_orders,'单/天',preN+'天均值')}
-        ${kpiCard('日均送衣单量', b.songyi_orders,'单/天',preN+'天均值')}
+        ${kpiCard('日均取衣单量', (b.quyi_orders/preN).toFixed(2),'单/天',preN+'天均值')}
+        ${kpiCard('日均送衣单量', (b.songyi_orders/preN).toFixed(2),'单/天',preN+'天均值')}
         ${kpiCard('日均合计单量', b.daily_avg_orders,'单/天',preN+'天均值')}
         ${kpiCard('日均件数', b.daily_avg_pieces,'件/天',preN+'天均值')}
         ${kpiCard('单均件数', b.avg_pieces_per_order,'件/单',preN+'天均值')}
+      </div>
+      <div class="rowtag after">▼ 改革后日均 <small>${reformLabel()} 起 · ${rm.days} 天</small></div>
+      <div class="cards">
+        ${kpiCard('日均取衣单量', rm.dqo,'单/天',rm.days+'天均值 · '+reformLabel()+' 起', 'after')}
+        ${kpiCard('日均送衣单量', rm.dso,'单/天',rm.days+'天均值 · '+reformLabel()+' 起', 'after')}
+        ${kpiCard('日均合计单量', rm.dto,'单/天',rm.days+'天均值 · '+reformLabel()+' 起', 'after')}
+        ${kpiCard('日均件数', rm.dtp,'件/天',rm.days+'天均值 · '+reformLabel()+' 起', 'after')}
+        ${kpiCard('单均件数', rm.apo,'件/单','总件数 ÷ 总订单', 'after')}
       </div>
     </div>
     <div class="panel">
@@ -603,7 +632,7 @@ function renderAll(){
   try{ renderReform(); }catch(e){ console.error('renderReform failed:',e); }
   document.getElementById('footnote').innerHTML =
     `📌 口径说明：① 数据来源：国色星洗 SaaS 系统接口（/api/zhcx/deliveryinfo/query，配送信息查询页数据源，取已完成 deliveryStatus=Y），订单日期取「预约时间」，分析窗口为 ${DATA.meta.period}（共 ${DATA.meta.total_rows_in_window} 单；${reformLabel()} 为取送机制改革启动日，纳入以观察改革前后变化）。`+
-    `②「改革效果」页将 ${DATA.baseline.pre_period}（${DATA.baseline.pre_days} 天）日均值固化为改革前基线节点（合计日均单量 ${DATA.baseline.overall.daily_avg_orders} 单、日均件数 ${DATA.baseline.overall.daily_avg_pieces} 件），与 ${reformLabel()} 起单日数据做日环比对比。`+
+    `②「改革效果」页将 ${DATA.baseline.pre_period}（${DATA.baseline.pre_days} 天）日均值固化为改革前基线节点（合计日均单量 ${DATA.baseline.overall.daily_avg_orders} 单、日均件数 ${DATA.baseline.overall.daily_avg_pieces} 件），与 ${reformLabel()} 起单日数据做日环比对比；并同排展示改革后（${reformLabel()} 起至最新日）同维度日均指标，改革后日均 = 改革后区间累计单量/件数 ÷ 区间天数。`+
     `③ 门店维度覆盖全部 7 家门店（人南片区）；伙伴维度仅统计 杨龙、何国举、罗旺、贺亮、王明志、桑尉焜 6 位。`+
     `④ 伙伴日均单量/日均件数 = 该伙伴累计单量/件数 ÷ 实际出勤天数（当天休息的伙伴不纳入计算：不算天数，出勤天数=窗口内当日有派单记录的天数）；「单均件数」= 总件数 ÷ 总订单。`+
     `⑤ 伙伴改革后单日明细中，当日 0 单的伙伴按「休」处理，不占出勤人头、不参与该日环比；日期筛选按钮标注每日实际出勤人数。⑥ 所有订单状态均为「已完成」。⑦ 逐日趋势图上的 🟧 虚线为改革启动节点(${reformLabel()})。`;
