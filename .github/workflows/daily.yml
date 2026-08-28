@@ -2,8 +2,12 @@ name: 人南片区取送日报（每日20:30）
 
 on:
   schedule:
-    # UTC 12:30 = 北京时间 20:30（GitHub cron 使用 UTC）
+    # GitHub schedule 高峰期会延迟/跳过，故设 3 个冗余触发点（UTC，+8=北京时间）：
+    #   12:30=20:30 主跑；13:00=21:00 补跑；14:00=22:00 兜底（保证当天至少成功一次）
+    # 多次触发会重复执行，concurrency 组排队去重，无害（每次约 2.5 分钟）。
     - cron: '30 12 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
   workflow_dispatch: {}
 
 permissions:
