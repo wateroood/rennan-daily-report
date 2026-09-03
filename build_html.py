@@ -361,9 +361,12 @@ function renderPartners(){
     const s=DATA.partners[k].summary;
     const bp=DATA.baseline.partners[k];
     const rd=reformDayMetrics(DATA.partners[k]);
+    const af=DATA.meta.partner_active_from||{};
+    const late = af[k] && af[k] > DATA.meta.reform_date;  // 任职晚于改革日（如梁几斗 9.1 接替）
+    const lateNote = late ? `· ${af[k].slice(5).replace('-','/')} 起接替杨龙任职（晚于改革启动，暂无改革前基线）` : '';
     return `<div class="ptn">
       <div class="ptn-hd">
-        <span class="ptn-name">${k}</span>
+        <span class="ptn-name">${k}${late?' <small style="font-weight:600;color:var(--orange);font-size:12px;">接替杨龙</small>':''}</span>
         <span class="ptn-chip">总单 ${s.total_orders}</span>
         <span class="ptn-chip">总件 ${s.total_pieces}</span>
         <span class="ptn-chip">出勤 ${s.active_days} 天${s.rest_days>0?' · 休'+s.rest_days+' 天':''}</span>
@@ -371,7 +374,7 @@ function renderPartners(){
         <span class="ptn-chip">日均 ${s.daily_avg_pieces} 件</span>
         <span class="ptn-chip">单均 ${s.avg_pieces_per_order} 件/单</span>
       </div>
-      <div class="ptn-base">改革前日均单量 <b>${bp.daily_avg_orders}</b> 单/天（出勤${bp.active_days}天） · 改革首日(${reformLabel()}) <b>${rd.to}</b> 单（日环比 ${pctHtml(rd.to, bp.daily_avg_orders)}）；日均件数基线 <b>${bp.daily_avg_pieces}</b> 件 → 首日 <b>${rd.tp}</b> 件（${pctHtml(rd.tp, bp.daily_avg_pieces)}）</div>
+      <div class="ptn-base">改革前日均单量 <b>${bp.daily_avg_orders}</b> 单/天（出勤${bp.active_days}天） · 改革首日(${reformLabel()}) <b>${rd.to}</b> 单（日环比 ${pctHtml(rd.to, bp.daily_avg_orders)}）；日均件数基线 <b>${bp.daily_avg_pieces}</b> 件 → 首日 <b>${rd.tp}</b> 件（${pctHtml(rd.tp, bp.daily_avg_pieces)}）${lateNote}</div>
       <div class="grid2">
         <div class="panel">
           <h3>订单量逐日趋势</h3>
@@ -389,7 +392,7 @@ function renderPartners(){
   sec.innerHTML = `
     <div class="panel">
       <h3>${DATA.meta.partners.length}位伙伴累计对比</h3>
-      <p class="desc">仅统计 杨龙、何国举、罗旺、贺亮、王明志、桑尉焜。柱体=订单量（蓝=取衣，绿=送衣，堆叠），线=件数。</p>
+      <p class="desc">仅统计现役伙伴 ${DATA.meta.partners.join('、')}（杨龙 2026-09-01 起离职，岗位由梁几斗接替；梁几斗自 9.1 起纳入伙伴统计）。柱体=订单量（蓝=取衣，绿=送衣，堆叠），线=件数。</p>
       <div class="chartbox"><canvas id="partnerCmp"></canvas></div>
     </div>
     <p class="desc" style="margin:10px 2px 4px;">以下为 ${DATA.meta.partners.length} 位伙伴各自逐日趋势（单量 + 件数），直接平铺展示，无需切换：</p>
@@ -428,10 +431,13 @@ function renderReform(){
   const reformDates = DATA.dates.filter(d=> d >= DATA.meta.reform_date);
   // 6位伙伴改革后单日明细：行=伙伴×日期，列=姓名/日期/取衣送衣合计单量/取衣送衣合计件数/单量及件数日环比
   const pks = DATA.meta.partners;
+  const afMap = DATA.meta.partner_active_from||{};
   const pRows = pks.map(k=>{
     const ent = DATA.partners[k].daily;
     const bp = DATA.baseline.partners[k];
+    const af = afMap[k];  // 任职起始日（如梁几斗 2026-09-01）
     return reformDates.map(d=>{
+      if(af && d < af) return '';  // 尚未任职（接替前任前）——不纳入该伙伴明细
       const i = DATA.dates.indexOf(d);
       const qo=ent['取衣_orders'][i], so=ent['送衣_orders'][i], to=ent['orders'][i];
       const qp=ent['取衣_pieces'][i], sp=ent['送衣_pieces'][i], tp=ent['pieces'][i];
@@ -497,7 +503,7 @@ function renderReform(){
         }).join('')}</tbody>
       </table></div>
       <details class="pdet" open>
-        <summary>6位伙伴 · 改革后单日明细（单量/件数 vs 个人改革前日均，日环比）</summary>
+        <summary>${DATA.meta.partners.length}位伙伴 · 改革后单日明细（单量/件数 vs 个人改革前日均，日环比；梁几斗 9.1 起接替杨龙，此前不展示）</summary>
         <div class="pdet-body">
           <div class="datefilter" id="pdetDateFilter">
             <span class="df-lbl">按日期筛选：</span>
@@ -633,9 +639,9 @@ function renderAll(){
   document.getElementById('footnote').innerHTML =
     `📌 口径说明：① 数据来源：国色星洗 SaaS 系统接口（/api/zhcx/deliveryinfo/query，配送信息查询页数据源，取已完成 deliveryStatus=Y），订单日期取「预约时间」，分析窗口为 ${DATA.meta.period}（共 ${DATA.meta.total_rows_in_window} 单；${reformLabel()} 为取送机制改革启动日，纳入以观察改革前后变化）。`+
     `②「改革效果」页将 ${DATA.baseline.pre_period}（${DATA.baseline.pre_days} 天）日均值固化为改革前基线节点（合计日均单量 ${DATA.baseline.overall.daily_avg_orders} 单、日均件数 ${DATA.baseline.overall.daily_avg_pieces} 件），与 ${reformLabel()} 起单日数据做日环比对比；并同排展示改革后（${reformLabel()} 起至最新日）同维度日均指标，改革后日均 = 改革后区间累计单量/件数 ÷ 区间天数。`+
-    `③ 门店维度覆盖全部 7 家门店（人南片区）；伙伴维度仅统计 杨龙、何国举、罗旺、贺亮、王明志、桑尉焜 6 位。`+
+    `③ 门店维度覆盖全部 7 家门店（人南片区）；伙伴维度统计现役 ${DATA.meta.partners.length} 位（${DATA.meta.partners.join('、')}）。杨龙 2026-09-01 起离职，其岗位由梁几斗接替；梁几斗自 9.1 起纳入伙伴统计，其 9 月前的顶班记录不计入伙伴维度。`+
     `④ 伙伴日均单量/日均件数 = 该伙伴累计单量/件数 ÷ 实际出勤天数（当天休息的伙伴不纳入计算：不算天数，出勤天数=窗口内当日有派单记录的天数）；「单均件数」= 总件数 ÷ 总订单。`+
-    `⑤ 伙伴改革后单日明细中，当日 0 单的伙伴按「休」处理，不占出勤人头、不参与该日环比；日期筛选按钮标注每日实际出勤人数。⑥ 所有订单状态均为「已完成」。⑦ 逐日趋势图上的 🟧 虚线为改革启动节点(${reformLabel()})。`;
+    `⑤ 伙伴改革后单日明细中，当日 0 单的伙伴按「休」处理，不占出勤人头、不参与该日环比；接替前任任职前的日期不展示；日期筛选按钮标注每日实际出勤人数。⑥ 所有订单状态均为「已完成」。⑦ 逐日趋势图上的 🟧 虚线为改革启动节点(${reformLabel()})。`;
   document.title = `人南片区取送情况分析 (${DATA.meta.period.replace('2026-','').replace(' ~ ',' ~ ')})`;
 }
 renderAll();

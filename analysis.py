@@ -15,8 +15,15 @@ if not os.path.exists(_qs_path):
 _qs = json.load(open(_qs_path, encoding="utf-8"))
 _raw_rows = _qs["rows"]
 
-PARTNERS = ['杨龙', '何国举', '罗旺', '贺亮', '王明志', '桑尉焜']
+# 2026-09-01 起：杨龙离职，其岗位由梁几斗接替。
+# 梁几斗仅自接替日起计入伙伴口径（其 9 月前的顶班记录不计入伙伴维度，保留在片区/门店总体）。
+PARTNERS = ['梁几斗', '何国举', '罗旺', '贺亮', '王明志', '桑尉焜']
 PARTNER_SET = set(PARTNERS)
+PARTNER_SINCE = {'梁几斗': '2026-09-01'}  # 伙伴任职起始日
+
+def in_role(p, dt):
+    """伙伴任职判断：dt 当日 p 是否属于现役伙伴口径。"""
+    return dt >= PARTNER_SINCE.get(p, '0000-00-00')
 
 rows = []
 for r in _raw_rows:
@@ -82,10 +89,10 @@ store_daily = defaultdict(lambda: empty_daily(dates))
 for x in rows:
     accumulate(store_daily[x['store']], x['dtype'], x['date'], x['pieces'])
 
-# ---- Partners (only the 6) ----
+# ---- Partners (现役 6 位；梁几斗 9.1 起接替杨龙，只计 9.1 后数据) ----
 partner_daily = defaultdict(lambda: empty_daily(dates))
 for x in rows:
-    if x['deliverer'] in PARTNER_SET:
+    if x['deliverer'] in PARTNER_SET and in_role(x['deliverer'], x['date']):
         accumulate(partner_daily[x['deliverer']], x['dtype'], x['date'], x['pieces'])
 
 def summarize(daily, dlist=None, use_active_days=False):
@@ -132,7 +139,10 @@ for st in sorted(store_daily.keys()):
 
 partners_out = {}
 for p in PARTNERS:  # keep given order
-    partners_out[p] = {'daily': series(partner_daily[p]), 'summary': summarize(partner_daily[p], dates, use_active_days=True)}
+    since = PARTNER_SINCE.get(p, START)
+    dlist_p = [d for d in dates if d >= since]  # 只在其任职窗口内算出勤/休息
+    partners_out[p] = {'daily': series(partner_daily[p]),
+                       'summary': summarize(partner_daily[p], dlist_p, use_active_days=True)}
 
 # Overall (all stores, all deliverers)
 overall_daily = empty_daily(dates)
@@ -140,10 +150,10 @@ for x in rows:
     accumulate(overall_daily, x['dtype'], x['date'], x['pieces'])
 overall = {'daily': series(overall_daily), 'summary': summarize(overall_daily, dates)}
 
-# Partners-only overall
+# Partners-only overall（现役伙伴口径）
 ponly_daily = empty_daily(dates)
 for x in rows:
-    if x['deliverer'] in PARTNER_SET:
+    if x['deliverer'] in PARTNER_SET and in_role(x['deliverer'], x['date']):
         accumulate(ponly_daily, x['dtype'], x['date'], x['pieces'])
 ponly = {'daily': series(ponly_daily), 'summary': summarize(ponly_daily, dates)}
 
@@ -160,7 +170,7 @@ def baseline_for(filter_fn):
     return summarize(d, PRE_DATES, use_active_days=True)
 
 base_overall = baseline_for(lambda x: True)
-base_partners = {p: baseline_for(lambda x, p=p: x['deliverer'] == p) for p in PARTNERS}
+base_partners = {p: baseline_for(lambda x, p=p: x['deliverer'] == p and in_role(p, x['date'])) for p in PARTNERS}
 
 result = {
     'meta': {
@@ -172,6 +182,8 @@ result = {
         'pre_period': PRE_PERIOD,
         'pre_days': len(PRE_DATES),
         'partners': PARTNERS,
+        'partner_active_from': PARTNER_SINCE,
+        'partner_change_note': '杨龙 2026-09-01 起离职，岗位由梁几斗接替（梁几斗自 9.1 起计入伙伴统计，其 9 月前的顶班记录不计入伙伴维度）',
         'stores': sorted(store_daily.keys()),
         'order_date_field': '预约时间',
         'total_rows_in_window': len(rows),

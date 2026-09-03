@@ -28,7 +28,8 @@ from gsx_client import GSXClient, load_config
 # 人南片区 7 店（成都公司口径门店 id）
 RENNAN_SHOPS = [8, 4, 73, 19, 20, 1, 42]  # 东湖/东苑/大世界/新希望路/盛和路/紫荆/高攀路
 
-PARTNERS = ['杨龙', '何国举', '罗旺', '贺亮', '王明志', '桑尉焜']
+# 现役伙伴（2026-09-01 起：杨龙离职，梁几斗接替其岗位）
+PARTNERS = ['梁几斗', '何国举', '罗旺', '贺亮', '王明志', '桑尉焜']
 
 
 def norm(rec: dict) -> dict:
